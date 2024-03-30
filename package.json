@@ -1,0 +1,28 @@
+{
+    "name": "golden-raspberry-api",
+    "version": "1.0.0",
+    "description": "Modelo de api simples feita em Node",
+    "main": "index.js",
+    "scripts": {
+        "start": "node server",
+        "test": "jest"
+    },
+    "keywords": [],
+    "author": "Roberto Oliveira Martins",
+    "license": "ISC",
+    "dependencies": {
+        "body-parser": "^1.19.0",
+        "config": "^3.2.3",
+        "consign": "^0.1.6",
+        "csv-parser": "^3.0.0",
+        "express": "^4.17.1",
+        "mongoose": "^5.10.7",
+        "mysql": "^2.18.1",
+        "nodemon": "^2.0.4",
+        "sqlite3": "^5.1.7"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "supertest": "^6.3.4"
+    }
+}
