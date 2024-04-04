@@ -39,81 +39,102 @@ db.serialize(() => {
 });
 
 // Endpoint para obter o produtor com maior intervalo entre dois prêmios consecutivos e o que obteve dois prêmios mais rápido
-app.get('/raspberries/interval', (req, res) => {
-    db.all(`
-    SELECT producers as producer, previous_win_year as previousWin, following_win_year as followingWin, interval
-        FROM (
-            SELECT
-                producers,
-                MIN(previous_win_year) AS previous_win_year,
-                MIN(following_win_year) AS following_win_year,
-                MIN(interval) AS interval
-            FROM
-                (
+app.get('/raspberries/interval', async (req, res) => {
+    try {
+        // Consulta para o intervalo mínimo
+        const minRows = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT producers as producer, previous_win_year as previousWin, following_win_year as followingWin, interval
+                FROM (
                     SELECT
-                        p1.producers,
-                        p1.year AS previous_win_year,
-                        MIN(p2.year) AS following_win_year,
-                        MIN(p2.year) - p1.year AS interval
+                        producers,
+                        MIN(previous_win_year) AS previous_win_year,
+                        MIN(following_win_year) AS following_win_year,
+                        MIN(interval) AS interval
                     FROM
-                        producer p1
-                    JOIN
-                        producer p2 ON p1.producers = p2.producers
-                    WHERE
-                        p1.year < p2.year
-                        AND p1.winner = 1
-                        AND p2.winner = 1
+                        (
+                            SELECT
+                                p1.producers,
+                                p1.year AS previous_win_year,
+                                MIN(p2.year) AS following_win_year,
+                                MIN(p2.year) - p1.year AS interval
+                            FROM
+                                producer p1
+                            JOIN
+                                producer p2 ON p1.producers = p2.producers
+                            WHERE
+                                p1.year < p2.year
+                                AND p1.winner = 1
+                                AND p2.winner = 1
+                            GROUP BY
+                                p1.producers, p1.year
+                        ) AS subquery
                     GROUP BY
-                        p1.producers, p1.year
-                ) AS subquery
-            GROUP BY
-                producers
-            ORDER BY
-                interval DESC
-            LIMIT 1
-        )
-        UNION ALL
-        SELECT producers, previous_win_year, following_win_year, interval
-        FROM (
-            SELECT
-                producers,
-                MIN(previous_win_year) AS previous_win_year,
-                MIN(following_win_year) AS following_win_year,
-                MIN(interval) AS interval
-            FROM
-                (
-                    SELECT
-                        p1.producers,
-                        p1.year AS previous_win_year,
-                        MIN(p2.year) AS following_win_year,
-                        MIN(p2.year) - p1.year AS interval
-                    FROM
-                        producer p1
-                    JOIN
-                        producer p2 ON p1.producers = p2.producers
-                    WHERE
-                        p1.year < p2.year
-                        AND p1.winner = 1
-                        AND p2.winner = 1
-                    GROUP BY
-                        p1.producers, p1.year
-                ) AS subquery
-            GROUP BY
-                producers
-            ORDER BY
-                interval ASC
-            LIMIT 1
-    );
-    `, (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.json({
-            "min": rows,
-            "max": rows
+                        producers
+                    ORDER BY
+                        interval ASC
+                    LIMIT 1
+                )
+            `, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
         });
-    });
+
+        // Consulta para o intervalo máximo
+        const maxRows = await new Promise((resolve, reject) => {
+            db.all(`
+                SELECT producers, previous_win_year, following_win_year, interval
+                FROM (
+                    SELECT
+                        producers,
+                        MIN(previous_win_year) AS previous_win_year,
+                        MIN(following_win_year) AS following_win_year,
+                        MIN(interval) AS interval
+                    FROM
+                        (
+                            SELECT
+                                p1.producers,
+                                p1.year AS previous_win_year,
+                                MIN(p2.year) AS following_win_year,
+                                MIN(p2.year) - p1.year AS interval
+                            FROM
+                                producer p1
+                            JOIN
+                                producer p2 ON p1.producers = p2.producers
+                            WHERE
+                                p1.year < p2.year
+                                AND p1.winner = 1
+                                AND p2.winner = 1
+                            GROUP BY
+                                p1.producers, p1.year
+                        ) AS subquery
+                    GROUP BY
+                        producers
+                    ORDER BY
+                        interval DESC
+                    LIMIT 1
+                )
+            `, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows);
+                }
+            });
+        });
+
+        // Devolve o resultado completo
+        res.json({
+            min: minRows,
+            max: maxRows
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Iniciar o servidor
